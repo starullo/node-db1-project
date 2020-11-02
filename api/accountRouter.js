@@ -5,8 +5,16 @@ const db = require('../data/dbConfig');
 const accountRouter = express.Router();
 
 const Accounts = {
-    getAll() {
-        return db('accounts');
+    getAll(query) {
+        const {page = 1, limit = 100, sortby = 'id', sortdir = 'asc'} = query;
+        const offset = limit * (page - 1);
+        console.log(query, page, limit, sortby, sortdir);
+        let rows = db('accounts')
+        .orderBy(sortby, sortdir)
+        .limit(limit)
+        .offset(offset);
+
+        return rows;
     },
     getById(id) {
         return db('accounts').where({id}).first();
@@ -47,7 +55,7 @@ const validateNewAccount = (req, res, next) => {
 }
 
 accountRouter.get('/', (req, res, next)=>{
-    Accounts.getAll()
+    Accounts.getAll(req.query)
     .then(data=>{
         res.json(data);
     })
