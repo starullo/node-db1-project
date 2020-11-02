@@ -22,6 +22,30 @@ const Accounts = {
     }
 }
 
+const validateAccountId = (req, res, next) => {
+    Accounts.getById(req.params.id)
+    .then(data=>{
+        if (data) {
+            req.accountInfo = data;
+            next();
+        } else {
+            next({code: 404, message: 'there is no account with the id of ' + req.params.id + '!'})
+        }
+    })
+    .catch(err=>{
+        next({code: 500, message: 'something went wrong'})
+    })
+}
+
+const validateNewAccount = (req, res, next) => {
+    if (req.body.name && req.body.budget) {
+        req.newAccount = req.body;
+        next();
+    } else {
+        next({code: 404, message: ''})
+    }
+}
+
 accountRouter.get('/', (req, res, next)=>{
     Accounts.getAll()
     .then(data=>{
@@ -32,25 +56,11 @@ accountRouter.get('/', (req, res, next)=>{
     })
 })
 
-accountRouter.get('/:id', (req, res, next)=>{
-    Accounts.getById(req.params.id)
-    .then(data=>{
-        if (data) {
-        res.json(data);
-        } else {
-            res.status(404).json({message: 'No account with the id of ' + req.params.id})
-        }
-    })
-    .catch(err=>{
-        res.status(500).json({message: 'Something went wrong'})
-    })
+accountRouter.get('/:id', validateAccountId, (req, res, next)=>{
+    res.json(req.accountInfo);
 })
 
-accountRouter.post('/', (req, res, next)=>{
-    if (!req.body.name || !req.body.budget) {
-        res.status(400).json({message: "name and budget are required"})
-    } else {
-        console.log(req.body)
+accountRouter.post('/', validateNewAccount, (req, res, next)=>{
         Accounts.createAccount(req.body)
         .then(([id])=>{
             console.log(id)
@@ -62,16 +72,9 @@ accountRouter.post('/', (req, res, next)=>{
         .catch(err=>{
             res.status(500).json({message: 'Something went wrong'})
         })
-    }
 })
 
-accountRouter.put('/:id', async (req, res, next)=>{
-   const account =  await Accounts.getById(req.params.id);
-   if (!account) {
-       res.status(404).json({message: 'No account with the id of ' + req.params.id})
-   } else if (!req.body.name || !req.body.budget) {
-       res.status(400).json({message: 'name and budget are required fields'})
-   } else {
+accountRouter.put('/:id', [validateAccountId, validateNewAccount], async (req, res, next)=>{
        Accounts.updateAccount(req.params.id, req.body)
        .then(async data=>{
            const newAccount = await Accounts.getById(req.params.id);
@@ -83,21 +86,21 @@ accountRouter.put('/:id', async (req, res, next)=>{
        .catch(err=>{
            res.status(500).json({message: 'something went wrong'})
        })
-   }
 })
 
-accountRouter.delete('/:id', async (req, res, next)=>{
-    try {
-        const amountDeleted = await Accounts.delete(req.params.id);
-        if (!amountDeleted) {
-            res.status(404).json({message: 'no account with the id of ' + req.params.id})
-        } else {
-            res.json({message: 'account deleted successfully'})
-        }
-    } catch (error) {
-        res.status(500).json({message: 'something went wrong'})
-    }
+accountRouter.delete('/:id', validateAccountId, async (req, res, next)=>{
+            Accounts.delete(req.params.id)
+            .then(data=>{
+                res.json({message: 'account deleted successfully'})
+            })
+            .catch(err=>{
+                res.status(500).json({message: 'something went wrong'})
+            }
+            )
 })
 
+accountRouter.use((err, req, res, next)=>{
+    res.status(err.code).json({message: err.message})
+})
 
 module.exports = accountRouter;
